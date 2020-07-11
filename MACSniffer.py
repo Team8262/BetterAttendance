@@ -5,6 +5,8 @@ import time
 file = open("control", "w+")
 file.write("0")
 MACwhitelist = ["cc:40:d0:c2:5c:a2"]
+MACTable = {}
+sessions = [] #Tuples of MAC, start, end
 
 run = True
 while run:
@@ -33,14 +35,29 @@ while run:
         clients = []
 
         for sent, received in result: 
-                # for each response, append ip and mac address to 'clients' list
-                if received.hwsrc not in MACwhitelist:
-                        clients.append({'ip': received.psrc, 'mac': received.hwsrc})
+                # for each response, mac address to 'clients' list
+                if received.hwsrc not in MACwhitelist and received.hwsrc not in clients:
+                        clients.append(received.hwsrc)
 
+        tempMacList = list(MACTable.keys())
+        for mac in clients:
+                if mac in MACTable.keys(): 
+                        tempMacList.remove(mac)
+                        MACTable[mac][1] = 0
+                else:
+                        MACTable[mac] = [str(datetime.datetime.now())[11:19], 0]
+        for mac in tempMacList:
+                if MACTable[mac][1] > 11:
+                        sessions.append((mac, MACTable.get(mac), str(datetime.datetime.now())[11:19]))
+                        del MACTable[mac]
+                else:
+                        MACTable[mac][1] += 1
         # print clients
-        print("Available devices in the network:")
-        print("IP" + " "*20 + "MAC")
-        for client in clients:
-                print("{:16}	{}".format(client['ip'], client['mac']))
+        #print("Available devices in the network:")
+        #print("IP" + " "*20 + "MAC")
+        #for client in clients:
+                #print("{:16}	{}".format(client['ip'], client['mac']))
                 
 file.close()
+print(sessions)
+print(MACTable)
