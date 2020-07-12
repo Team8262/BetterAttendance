@@ -8,9 +8,11 @@ from threading import Timer
 
 """
 TODO
-* Check cell before overwriting it
+* Check row before overwriting it
 * Populate MACLookup
 * Test range
+* Add date
+* Test network range
 
 """
 
@@ -68,19 +70,18 @@ def uploadData():
         wks = sheet[0]
 
         for i in MACTable["sessions"]:
-                letters = ["A", "B", "C"]
-                for x in range(3):
-                        wks.update_value(letters[x] + str(currentRow), lookup.get(i[x], i[x]) if x == 0 else i[x])
-                wks.update_value("D{0}".format(str(currentRow)), '=C{0}-B{0}'.format(str(currentRow)), True)
-                wks.update_value("E{0}".format(str(currentRow)), '=index(split(D{0},":"),1)*60+index(split(D{0},":"),2)'.format(str(currentRow)), True)
-
+                wks.update_row(currentRow, [[lookup.get(i[0], i[0]), 
+                                            i[1], 
+                                            i[2], 
+                                            '=C{0}-B{0}'.format(str(currentRow)), 
+                                            '=index(split(D{0},":"),1)*60+index(split(D{0},":"),2)'.format(str(currentRow))]])
                 currentRow += 1
         MACTable["sessions"] = []
         sessions = []
 
         MACTable["lastRow"] = currentRow
 
-print("Starting program")
+print("Program started")
 file = open("control", "w+")
 file.write("0")
 MACwhitelist = ["cc:40:d0:c2:5c:a2"]
@@ -119,7 +120,7 @@ monitorTimer.start()
 uploadTimer.start()
 
 run = True
-print("Starting scans")
+print("Starting scan routine")
 while run:
         time.sleep(10)
         
@@ -128,7 +129,7 @@ while run:
         
         if control_flag != "0":
                 run = False
-                print("Shutting Down...")
+                print("Shutting down...")
 
         
         # print clients
