@@ -4,6 +4,7 @@ import time
 import json
 import pygsheets
 from threading import Timer
+import csv
 
 
 """
@@ -69,12 +70,38 @@ def uploadData():
         sheet = gc.open('Attendance')
         wks = sheet[0]
 
+        #TESTING
+        print(MACTable)
+        """
+        DONT BE STUPID AND FORGET TO FIX THE SESSIONS LOOP ERROR 
+        WHEN CELL IS NON-EMPTY
+        """
+
+        offset = False
+
         for i in MACTable["sessions"]:
-                wks.update_row(currentRow, [[lookup.get(i[0], i[0]), 
+                while wks.get_value("A{}".format(currentRow)) != "":
+                        currentRow += 1
+                        offset = True
+                while wks.get_value("A{}".format(currentRow - 1)) == "":
+                        currentRow -= 1
+                        offset = True
+                values = [[lookup.get(i[0], i[0]), 
                                             i[1], 
                                             i[2], 
                                             '=C{0}-B{0}'.format(str(currentRow)), 
-                                            '=index(split(D{0},":"),1)*60+index(split(D{0},":"),2)'.format(str(currentRow))]])
+                                            '=index(split(D{0},":"),1)*60+index(split(D{0},":"),2)'.format(str(currentRow))]]
+                #CSV STUFF
+                values[0][3] = int(values[0][1].split(":")[1]) * 60 + 
+                values[0][4]
+                csvwriter.writerow(values[0])
+
+
+                if offset:
+                        values[0].append("Offset Row")
+                        offset = False
+
+                wks.update_row(currentRow, values)
                 currentRow += 1
         MACTable["sessions"] = []
         sessions = []
@@ -119,6 +146,9 @@ uploadTimer = RepeatTimer(30, uploadData)
 monitorTimer.start()
 uploadTimer.start()
 
+csvfile = open('log.csv', 'w', newline='')
+csvwriter = csv.writer(csvfile)
+
 run = True
 print("Starting scan routine")
 while run:
@@ -139,6 +169,7 @@ while run:
                 #print("{:16}	{}".format(client['ip'], client['mac']))
                 
 file.close()
+csvfile.close()
 monitorTimer.cancel()
 uploadTimer.cancel()
 
