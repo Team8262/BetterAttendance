@@ -4,16 +4,16 @@ import time
 import json
 import pygsheets
 from threading import Timer
+import os
 import csv
 
 
 """
 TODO
-* Check row before overwriting it
-* Populate MACLookup
+* Populate MACLookup - need: Shaan, Tommy, New Ryan, Kathleen, Irene?, Mikhail, Nyan
 * Test range
-* Add date
-* Test network range
+* Test network range - THIS IS DIFFERENT, I THINK
+*
 
 """
 
@@ -34,7 +34,7 @@ def scanAddresses():
 
         for sent, received in result: 
                 # for each response, mac address to 'clients' list
-                if received.hwsrc not in MACwhitelist and received.hwsrc not in clients:
+                if received.hwsrc not in clients and received.hwsrc in list(maclookup.keys()):
                         clients.append(received.hwsrc)
 
         tempMacList = list(MACTable.keys())
@@ -50,18 +50,18 @@ def scanAddresses():
                         tempMacList.remove(mac)
                         MACTable[mac][1] = 0
                 else:
-                        MACTable[mac] = [str(datetime.datetime.now())[11:19], 0]
+                        MACTable[mac] = [datetime.datetime.now().replace(microsecond=0), 0]
 
         for mac in tempMacList:
                 if MACTable[mac][1] > 11:
-                        sessions.append((mac, MACTable[mac][0], str(datetime.datetime.now())[11:19]))
+                        sessions.append((mac, MACTable[mac][0], datetime.datetime.now().replace(microsecond=0)))
                         del MACTable[mac]
                 else:
                         MACTable[mac][1] += 1
 
 def uploadData():
 
-        global sessions, MACTable, lookup, gc
+        global sessions, MACTable, lookup, gc, syncing
 
         MACTable["sessions"] = sessions
 
@@ -79,6 +79,8 @@ def uploadData():
 
         offset = False
 
+        MACTable["sessions"] = [["b8:53:ac:d7:29:86", datetime.datetime(2020, 7, 13, 11, 30, 54, 86054), datetime.datetime.now()]]
+
         for i in MACTable["sessions"]:
                 while wks.get_value("A{}".format(currentRow)) != "":
                         currentRow += 1
@@ -86,14 +88,17 @@ def uploadData():
                 while wks.get_value("A{}".format(currentRow - 1)) == "":
                         currentRow -= 1
                         offset = True
-                values = [[lookup.get(i[0], i[0]), 
-                                            i[1], 
-                                            i[2], 
-                                            '=C{0}-B{0}'.format(str(currentRow)), 
-                                            '=index(split(D{0},":"),1)*60+index(split(D{0},":"),2)'.format(str(currentRow))]]
+                values = [[maclookup.get(i[0], "N/A"), None, str(i[1].date()), str(i[1].time()), str(i[2].time()), str(i[2]-i[1]), str((i[2]-i[1]).total_seconds() // 60)]]
+                values[0][1] = idlookup.get(str(values[0][0]), i[0])
+                #values = [[lookup.get(i[0], i[0]), 
+                 #                           i[1], 
+                  #                          i[2], 
+                  #                          '=C{0}-B{0}'.format(str(currentRow)), 
+                  #                          '=index(split(D{0},":"),1)*60+index(split(D{0},":"),2)'.format(str(currentRow))]]
                 #CSV STUFF
-                values[0][3] = int(values[0][1].split(":")[1]) * 60 + 
-                values[0][4]
+                #values[0][3] = int(values[0][1].split(":")[1]) * 60 + 
+                #values[0][4]
+
                 csvwriter.writerow(values[0])
 
 
@@ -103,6 +108,10 @@ def uploadData():
 
                 wks.update_row(currentRow, values)
                 currentRow += 1
+
+        #Delete if something bad happens
+        csvfile.flush()
+
         MACTable["sessions"] = []
         sessions = []
 
@@ -111,7 +120,7 @@ def uploadData():
 print("Program started")
 file = open("control", "w+")
 file.write("0")
-MACwhitelist = ["cc:40:d0:c2:5c:a2"]
+MACwhitelist = ["cc:40:d0:c2:5c:a2"] #Is this useless?
 MACTable = {}
 sessions = [] #Tuples of MAC, start, end
 
@@ -121,7 +130,8 @@ with open("data.json", "r") as read_file:
 
 MACTable["lastRow"] = tempData.get("lastRow", 0)
 
-lookup = {}
+maclookup = {}
+idlookup = {}
 
 target_ip = "192.168.0.1/24"
 #IP Address for the destination
@@ -129,13 +139,17 @@ target_ip = "192.168.0.1/24"
 
 arp = ARP(pdst=target_ip)
 # create the Ether broadcast packet
+
 # ff:ff:ff:ff:ff:ff MAC address indicates broadcasting
 ether = Ether(dst="ff:ff:ff:ff:ff:ff")
 # stack them
 packet = ether/arp
 
 with open("MACLookup.json", "r") as read_file:
-        lookup = json.load(read_file)
+        maclookup = json.load(read_file)
+
+with open("IDLookup.json", "r") as read_file:
+        idlookup = json.load(read_file)
 
 
 gc = pygsheets.authorize(service_file="gsCreds.json")
@@ -146,7 +160,7 @@ uploadTimer = RepeatTimer(30, uploadData)
 monitorTimer.start()
 uploadTimer.start()
 
-csvfile = open('log.csv', 'w', newline='')
+csvfile = open('log.csv', 'a', newline='')
 csvwriter = csv.writer(csvfile)
 
 run = True
@@ -168,10 +182,12 @@ while run:
         #for client in clients:
                 #print("{:16}	{}".format(client['ip'], client['mac']))
                 
-file.close()
-csvfile.close()
+
 monitorTimer.cancel()
 uploadTimer.cancel()
 
+file.close()
+csvfile.close()
+MACTable = {"sessions": MACTable["sessions"], "lastRow" : MACTable["lastRow"]}
 with open("data.json", "w") as write_file:
         json.dump(MACTable, write_file)

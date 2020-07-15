@@ -1,4 +1,10 @@
 from scapy.all import ARP, Ether, srp
+import json
+
+maclookup = {}
+
+with open("MACLookup.json", "r") as read_file:
+        maclookup = json.load(read_file)
 
 target_ip = "192.168.0.1/24"
 # IP Address for the destination
@@ -17,7 +23,7 @@ clients = []
 
 for sent, received in result:
     # for each response, append ip and mac address to `clients` list
-    clients.append({'ip': received.psrc, 'mac': received.hwsrc})
+    clients.append({'ip': received.psrc, 'mac': maclookup.get(received.hwsrc, received.hwsrc)})
 
 # print clients
 print("Available devices in the network:")
