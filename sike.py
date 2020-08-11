@@ -1,4 +1,4 @@
-from scapy.all import ARP, Ether, srp
+from scapy.all import ARP, Ether, srp, arping
 import json
 
 maclookup = {}
@@ -6,6 +6,7 @@ maclookup = {}
 with open("MACLookup.json", "r") as read_file:
         maclookup = json.load(read_file)
 
+"""
 target_ip = "192.168.0.1/24"
 # IP Address for the destination
 # create ARP packet
@@ -30,3 +31,18 @@ print("Available devices in the network:")
 print("IP" + " "*18+"MAC")
 for client in clients:
     print("{:16}    {}".format(client['ip'], client['mac']))
+"""
+
+things = []
+ans,unans = arping("192.168.0.1/24", verbose=0)
+for s,r in ans:
+	mac = r[Ether].src
+	if not mac in things:
+		things.append(mac)
+    #print("{} {}".format(r[Ether].src,s[ARP].pdst))
+
+print("Pre processed")
+print(things)
+things = [maclookup.get(x, x) for x in things]
+print("Post processed:")
+print(things)

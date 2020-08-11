@@ -51,13 +51,15 @@ def scanAddresses():
                         MACTable[mac][1] = 0
                 else:
                         MACTable[mac] = [datetime.datetime.now().replace(microsecond=0), 0]
+                        if mac == "b8:53:ac:d7:29:86":
+                            print("Received")
 
         for mac in tempMacList:
                 if MACTable[mac][1] > 11:
                         sessions.append((mac, MACTable[mac][0], datetime.datetime.now().replace(microsecond=0)))
                         del MACTable[mac]
                 else:
-                        MACTable[mac][1] += 1
+                       MACTable[mac][1] += 1
 
 def uploadData():
 
@@ -79,8 +81,7 @@ def uploadData():
 
         offset = False
 
-        MACTable["sessions"] = [["b8:53:ac:d7:29:86", datetime.datetime(2020, 7, 13, 11, 30, 54, 86054), datetime.datetime.now()]]
-
+        #MACTable["sessions"] = [["b8:53:ac:d7:29:86", datetime.datetime(2020, 7, 13, 11, 30, 54, 86054), datetime.datetime.now()]]
         for i in MACTable["sessions"]:
                 while wks.get_value("A{}".format(currentRow)) != "":
                         currentRow += 1
